@@ -5,26 +5,68 @@ date: "2024-06-13"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+### Load packages 
+
+```{r load package, message=FALSE, warning=FALSE}
+library(tidyverse) # package for data cleaning and plotting
+library(here) # manage directory
+library(readxl) # read excel file
+
+set.seed(5432)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+### Import Raw Data 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r import data 0, message=FALSE, warning=FALSE}
+# import location level full data
+locations<- read_excel(here("data","2019_oct_ratings.xlsx"), sheet = 2)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+cic <- locations %>% 
+  rename(provider_name = `Provider Name`,
+         location_name = `Location Name`) 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r sample std}
+cic_renamed <- cic %>% 
+# remove dots
+  mutate(std_name = str_replace_all(provider_name, "\\.", "")) %>% 
+# capitalize all
+  mutate(std_name = str_to_upper(std_name)) %>%
+# standardize to LTD
+  mutate(std_name = str_replace_all(std_name, "LIMITED", "LTD")) %>% 
+# standardize to CIC
+  mutate(std_name = str_replace_all(std_name, "COMMUNITY INTEREST COMPANY", "CIC"))
+```
+
+
+```{r}
+cic_location_list <- cic_renamed %>% 
+filter(str_detect(std_name, "CIC")) %>%
+  group_by(location_name) %>%
+  slice(1)
+```
+
+
+```{r}
+cic_provider_list <- cic_renamed %>%
+  filter(str_detect(std_name, "CIC")) %>%
+  group_by(provider_name) %>%
+  slice(1)
+```
+
+
+
+```{r}
+write_csv(cic_provider_list, file = here("cleaned_data", "cic2019_provider.csv"))
+write_csv(cic_location_list, file = here("cleaned_data", "cic2019_location.csv"))
+```
+
+
+
