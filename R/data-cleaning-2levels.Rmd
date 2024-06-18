@@ -190,6 +190,35 @@ cic_overall_ratings_2019 <- combined_2levels %>%
 
 ```
 
+
+```{r}
+# data summary
+overall <- cic_all_ratings_2019 %>% 
+  mutate(rating_unit = ifelse(domain == "Overall", 1, 0)) %>% 
+  summarize(total_rows = n(),
+            rating_unit_count = sum(rating_unit),
+            location_name_count = n_distinct(location_name) - 1,
+            provider_name_count = n_distinct(provider_name)) %>% 
+  mutate(level = "sum") %>% 
+  select(level, everything())
+
+group <- cic_all_ratings_2019 %>% 
+  group_by(level) %>%
+  mutate(rating_unit = ifelse(domain == "Overall", 1, 0)) %>%
+  summarize(
+    total_rows = n(),
+    rating_unit_count = sum(rating_unit),
+    location_name_count = n_distinct(location_name),
+    provider_name_count = n_distinct(provider_name)
+  ) %>% 
+   mutate(location_name_count = ifelse(level == "provider", NA_integer_, location_name_count))
+
+count_summary <- bind_rows(overall, group)
+count_summary
+```
+
+
+
 ## save as csv files
 
 ```{r}
