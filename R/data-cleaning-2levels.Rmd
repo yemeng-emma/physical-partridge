@@ -191,6 +191,8 @@ cic_overall_ratings_2019 <- combined_2levels %>%
 ```
 
 
+## 4.  data summary counts
+
 ```{r}
 # data summary
 overall <- cic_all_ratings_2019 %>% 
@@ -219,7 +221,7 @@ count_summary
 
 
 
-## save as csv files
+## 5. save as csv files
 
 ```{r}
 write_csv(cic_all_ratings_2019, file = here("cleaned_data", "cic_all_ratings_2019.csv"))
