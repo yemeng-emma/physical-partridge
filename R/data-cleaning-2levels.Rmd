@@ -64,33 +64,16 @@ locations_std <- locations_renamed %>%
 ```
 
 
-### filtering out CIC and GOV providers
+### filtering out CICs
 
-```{r}
-## building the string detect conditions
-keep_terms <- c("CIC", "NHS ", "FOUNDATION TRUST", "COUNCIL", " CC ", " MDC ", " DC ", " BC ", "BOROUGH")
-keep_filter <- paste0("\\b(", paste(keep_terms, collapse = "|"), ")\\b")
-```
 
 ```{r}
 ## filtering out CICs and GOVs
 locations_coded <- locations_std %>% 
-  filter(str_detect(std_name, keep_filter)) %>% 
-  filter(!str_detect(std_name, "BOROUGH GREEN\\s|BOROUGH ROAD\\s")) %>% 
+  filter(str_detect(std_name, "CIC")) %>% 
   ## add the form and level columns
-  mutate(form = ifelse(str_detect(std_name, "CIC"), "CIC", "GOV"),
-         level = "location") %>% 
-  left_join(spinout, by = "provider_name") %>% 
-  mutate(spin_out = ifelse(is.na(spin_out), FALSE, TRUE))
+  mutate(level = "location")
 nrow(locations_coded)
-```
-
-
-```{r}
-#check the spin-out coding distribution 
-
-table(locations_coded$form, locations_coded$spin_out)
-
 ```
 
 
@@ -98,10 +81,23 @@ table(locations_coded$form, locations_coded$spin_out)
 ```{r}
 ## re-arrange columns 
 
-locations_to_merge <- locations_coded %>% 
-  mutate(project_id = paste0("location", row_number())) %>% 
-  select(project_id, provider_name, location_name = `Location Name`, type, primary_cat, form, region,
-         domain, rating, publication_date, report_type = `Report Type`, std_name, level, spin_out)
+locations_to_merge <- locations_coded %>%
+  mutate(project_id = paste0("location", row_number())) %>%
+  select(
+    project_id,
+    std_name,
+    provider_name,
+    location_name = `Location Name`,
+    type,
+    level,
+    service_group = `Service / Population Group`,
+    domain,
+    rating,
+    publication_date,
+    primary_cat,
+    region,
+    report_type = `Report Type`
+  )
 
 ```
 
@@ -111,7 +107,7 @@ locations_to_merge <- locations_coded %>%
 
 ```{r import data 0, message=FALSE, warning=FALSE}
 # sampled data manually coded (with unfriendly column names)
-providers <- read_excel("D:/Archive/Socialcare UK/data/2017_rating.xlsx", sheet = 3)
+providers <- read_excel(here("data","2019_oct_ratings.xlsx"), sheet = 3)
 ```
 
 
@@ -122,7 +118,7 @@ providers_renamed <- providers %>%
   rename(primary_cat = `Provider Primary Inspection Category`,
          type = `Provider Type`,
          region = `Provider Region`,
-         domain = `Key Question`, # named to "Domain" later 
+         domain = `Domain`, 
          rating = `Latest Rating`,
          provider_name = `Provider Name`,
          publication_date = `Publication Date`) 
@@ -147,23 +143,13 @@ providers_std <- providers_renamed %>%
 
 ### filtering out CIC and GOV providers
 
-```{r}
-## building the string detect conditions
-#keep_terms <- c("CIC", "NHS ", "FOUNDATION TRUST", "COUNCIL", " CC ", " MDC ", " DC ", " BC ", "BOROUGH")
-#keep_filter <- paste0("\\b(", paste(keep_terms, collapse = "|"), ")\\b")
-```
 
 ```{r}
 ## filtering out CICs and GOVs
 providers_coded <- providers_std %>% 
-  filter(str_detect(std_name, keep_filter)) %>% 
-  filter(!str_detect(std_name, "BOROUGH GREEN\\s|BOROUGH ROAD\\s")) %>% 
-  ## add the form and level columns
-  mutate(form = ifelse(str_detect(std_name, "CIC"), "CIC", "GOV"),
-         level = "provider") %>% 
-  left_join(spinout, by = "provider_name") %>% 
-  mutate(spin_out = ifelse(is.na(spin_out), FALSE, TRUE),
-         location_name = NA)
+  filter(str_detect(std_name, "CIC")) %>% 
+  mutate(level = "provider") %>% 
+  mutate(location_name = "NA")
 nrow(providers_coded)
 ```
 
@@ -172,9 +158,21 @@ nrow(providers_coded)
 
 providers_to_merge <- providers_coded %>% 
   mutate(project_id = paste0("provider", row_number())) %>% 
-  select(project_id, provider_name, location_name, type, primary_cat, form, region,
-         domain, rating, publication_date, report_type = `Report Type`, std_name, level, spin_out)
-
+  select(
+    project_id,
+    std_name,
+    provider_name,
+    location_name,
+    type,
+    level,
+    service_group = `Service / Population Group`,
+    domain,
+    rating,
+    publication_date,
+    primary_cat,
+    region,
+    report_type = `Report Type`
+  )
 ```
 
 
@@ -184,15 +182,19 @@ providers_to_merge <- providers_coded %>%
 
 ```{r}
 combined_2levels <- bind_rows(locations_to_merge, providers_to_merge)
+# prepare data files
+cic_all_ratings_2019 <- combined_2levels
+
+cic_overall_ratings_2019 <- combined_2levels %>% 
+  filter(domain == "Overall")
+
+```
+
+## save as csv files
+
+```{r}
+write_csv(cic_all_ratings_2019, file = here("cleaned_data", "cic_all_ratings_2019.csv"))
+write_csv(cic_overall_ratings_2019 , file = here("cleaned_data", "cic_overall_ratings_2019 .csv"))
 ```
 
 
-## 4. Drop overlapping provider level data
-
-  # drop the overlapping provider data
-combined <- combined_2levels
-  group_by(provider_name) %>% 
-  mutate(overlap = ifelse(
-    n() > 1 & level == "provider" & report_type == "Provider", "drop", "keep"
-  )) %>%
-  ungroup()
