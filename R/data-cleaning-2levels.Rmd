@@ -31,7 +31,7 @@ locations<- read_excel(here("data","2019_oct_ratings.xlsx"), sheet = 2)
 
 
 
-### Clean and filter out Gov and CIC providers
+### Clean and filter out CIC providers
 
 ```{r rename and filter, message=FALSE, warning=FALSE}
 ### Rename the columns 
