@@ -1,0 +1,208 @@
+---
+title: "data-analysis"
+author: "Meng Ye"
+date: "2024-08-24"
+output: html_document
+---
+
+## Introduction 
+
+The current version re-run the codes of the data analysis. 
+```{r contr}
+# environment setup to run ordered logit properly
+options(contrasts = rep("contr.treatment", 2))
+```
+
+### Load packages 
+
+```{r load package, message=FALSE, warning=FALSE}
+library(tidyverse) # package for data cleaning and plotting
+library(readxl)
+library(modelsummary)
+library(ordinal) # package for ordinal logit regression
+library(brant) # brant test for the parallel assumption for ordered logit
+library(MASS) # models that work with the brant test
+library(broom) # extracting model summary as data frame
+library(modelsummary) # deriving model tables
+library(scales) # label percent
+library(lubridate) # working with dates
+library(marginaleffects) #to calculate marginal effects
+library(gt) # to format tables
+library(here) # work with directory
+set.seed(5432)
+```
+
+
+
+## Merging CQC and financial data 
+
+
+```{r import data 0, message=FALSE, warning=FALSE}
+# import location level full data
+rating<- read_csv(here("cleaned_data","cic_all_ratings_2019.csv"))
+finance <- read_csv(here("cleaned_data","cls_finance.csv"))
+```
+
+
+```{r}
+finance1 <- finance %>% 
+  select(-std_name, -type) %>% 
+  group_by(project_id) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  mutate(id_digit = as.numeric(str_extract(project_id, "\\d+"))) %>%
+  arrange(id_digit)
+ 
+```
+
+
+```{r}
+# checking the largest number for the project_id in the finance data set 
+summary(finance1$id_digit)
+```
+
+```{r}
+#merging the data
+cic2019 <- rating %>% 
+  left_join(finance1, by = "project_id")
+```
+
+
+## data cleanning
+
+```{r}
+#select relevant columns, rename and relabel 
+cic_cleaned <- cic2019 %>% 
+  # recode legal form types to be more readable / easier to present
+  mutate(# inherited = ifelse(inherited == "Y", TRUE, FALSE),
+         rating = recode(rating, 
+                         "Insufficient evidence to rate" = "NA",
+                         "Requires improvement" = "Req improv"),
+         date = ymd(publication_date)) %>% 
+  
+  # assign order in the rating levels
+  mutate(rating = ordered(rating, levels = c("Inadequate","Req improv", "Good", "Outstanding")),
+         social_care = ifelse(type == "Social Care Org", "social care", "healthcare")) %>% 
+  
+  
+  # creating a new dummy variable for facility category
+  mutate(founded = as.numeric(founded),
+         year = year(date),
+         age = year - founded, 
+         Year = factor(year)) %>% 
+  mutate(cls = ifelse(CLS == 1, "CLS", "CLG"),
+         totalequity = as.numeric(totalequity),
+         totalequity_std = scale(totalequity, center = TRUE, scale = TRUE))
+```
+
+```{r}
+datasummary_crosstab(
+  formula = cls ~ rating,
+  data = cic_cleaned
+)
+```
+
+```{r}
+datasummary_crosstab(
+  formula = cls * spinout ~ rating,
+  data = cic_cleaned
+)
+```
+
+
+## regression analysis
+
+### models without equity variable 
+
+```{r }
+model_order_overall <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Overall"),
+                link = "logit")
+
+model_order_safe <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Safe"),
+                link = "logit")
+model_order_effective <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Effective"),
+                link = "logit")
+model_order_caring <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Caring"),
+                link = "logit")
+model_order_well_led <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Well-led"),
+                link = "logit")
+model_order_responsive <- clm(rating ~ cls  + spinout + social_care + age + dissolved,
+                data = filter(cic_cleaned, domain == "Responsive"),
+                link = "logit")
+```
+
+
+```{r}
+ordinal_models <-
+  modelsummary(
+    list(
+      "overall" = model_order_overall,
+      "safe" = model_order_safe,
+      "effective" = model_order_effective,
+      "caring" = model_order_caring,
+      "well-led" = model_order_well_led,
+      "responsive" = model_order_responsive
+    ),
+    coef_omit = "region",
+    exponentiate = F,
+    statistic = "({p.value}) {stars}")
+ordinal_models
+```
+### models with equity variables 
+
+Due to the large range/dispersion of the fiancial data. I standardize the `totalequity` variable to enable the models to run. 
+
+```{r}
+summary(cic_cleaned$totalequity)
+```
+
+
+```{r }
+eq_order_overall <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Overall"),
+                link = "logit")
+
+eq_order_safe <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Safe"),
+                link = "logit")
+eq_order_effective <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Effective"),
+                link = "logit")
+eq_order_caring <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Caring"),
+                link = "logit")
+eq_order_well_led <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Well-led"),
+                link = "logit")
+eq_order_responsive <- clm(rating ~ cls  + spinout + social_care + age + dissolved + totalequity_std,
+                data = filter(cic_cleaned, domain == "Responsive"),
+                link = "logit")
+```
+
+
+
+
+
+
+```{r}
+eq_models <-
+  modelsummary(
+    list(
+      "overall" = eq_order_overall,
+      "safe" = eq_order_safe,
+      "effective" = eq_order_effective,
+      "caring" = eq_order_caring,
+      "well-led" = eq_order_well_led,
+      "responsive" = eq_order_responsive
+    ),
+    coef_omit = "region",
+    exponentiate = F,
+    statistic = "({p.value}) {stars}")
+eq_models
+```
+
