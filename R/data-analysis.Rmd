@@ -2,7 +2,9 @@
 title: "data-analysis"
 author: "Meng Ye"
 date: "2024-08-24"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ## Introduction 
@@ -46,13 +48,8 @@ finance <- read_csv(here("cleaned_data","cls_finance.csv"))
 
 ```{r}
 finance1 <- finance %>% 
-  select(-std_name, -type) %>% 
-  group_by(project_id) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
   mutate(id_digit = as.numeric(str_extract(project_id, "\\d+"))) %>%
   arrange(id_digit)
- 
 ```
 
 
