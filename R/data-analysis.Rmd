@@ -98,7 +98,7 @@ count_by_form <- cic_cleaned %>%
   mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
   group_by(cls) %>% 
   summarize(count_provider = n_distinct(provider_name),
-            count_location = n_distinct(location_name),
+            count_location = n_distinct(location_name)-1,
             count_overall_rating = sum(overall),
             count_rating = n()) 
 
@@ -110,7 +110,8 @@ count_by_level_form <- cic_cleaned %>%
   mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
   group_by(cls, level) %>% 
   summarize(count_provider = n_distinct(provider_name),
-            count_location = n_distinct(location_name),
+            count_location = n_distinct(location_name), 
+            # the count_location for provider should be manually adjusted to 0
             count_overall_rating = sum(overall),
             count_rating = n()) 
 
