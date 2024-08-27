@@ -92,6 +92,34 @@ cic_cleaned <- cic2019 %>%
          totalequity_std = scale(totalequity, center = TRUE, scale = TRUE))
 ```
 
+
+```{r}
+count_by_form <- cic_cleaned %>% 
+  mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
+  group_by(cls) %>% 
+  summarize(count_provider = n_distinct(provider_name),
+            count_location = n_distinct(location_name),
+            count_overall_rating = sum(overall),
+            count_rating = n()) 
+
+count_by_form
+```
+
+```{r}
+count_by_level_form <- cic_cleaned %>% 
+  mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
+  group_by(cls, level) %>% 
+  summarize(count_provider = n_distinct(provider_name),
+            count_location = n_distinct(location_name),
+            count_overall_rating = sum(overall),
+            count_rating = n()) 
+
+count_by_level_form
+```
+
+
+
+
 ```{r}
 datasummary_crosstab(
   formula = cls ~ rating,
