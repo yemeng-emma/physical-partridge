@@ -1,0 +1,93 @@
+---
+title: "Data cleaning with manually corrected finance data"
+author: "Meng Ye"
+date: "2025-03-09"
+output: html_document
+---
+
+## Introduction 
+
+The current version include the data cleaning for location level CQC data from October 2019. 
+
+
+### Load packages 
+
+```{r load package, message=FALSE, warning=FALSE}
+library(readxl)
+library(modelsummary)
+library(here)
+library(tidyverse) # package for data cleaning and plotting
+set.seed(5432)
+```
+
+
+
+## Import data to merge
+
+
+```{r import data 0, message=FALSE, warning=FALSE}
+# import the financial data in Round 1
+finance_raw <- read_excel(here("cleaned_data","cls_finance_to_update.xlsx"))
+correct_finance <- read_csv(here("cleaned_data", "corrected_finance.csv"))
+```
+
+
+
+## Build the standard name columns in the corrected finance data frame to be the bridge column
+
+
+```{r sample std}
+correct_finance<- correct_finance |>
+# remove dots
+  mutate(std_name = str_replace_all(provider_name, "\\.", "")) |>
+# capitalize all
+  mutate(std_name = str_to_upper(std_name)) |>
+# standardize to LTD
+  mutate(std_name = str_replace_all(std_name, "LIMITED", "LTD")) |>
+# standardize to CIC
+  mutate(std_name = str_replace_all(std_name, "COMMUNITY INTEREST COMPANY", "CIC")) |>
+# deselect provider name 
+  dplyr::select(-provider_name)
+```
+
+```{r}
+colnames(correct_finance)
+```
+
+## Update the older data frame with new corrected data 
+
+
+
+```{r}
+library(dplyr)
+
+# Merge and update finance_raw with correct_finance
+finance_raw_updated <- finance_raw |>
+  left_join(
+    correct_finance,
+    by = "std_name"  # Key column for merging
+  ) |>
+  mutate(
+    # Update each column individually
+    currentasset = ifelse(!is.na(currentasset.y), currentasset.y, currentasset.x),
+    currentliabilities = ifelse(!is.na(currentliabilities.y), currentliabilities.y, currentliabilities.x),
+    calledupshare = ifelse(!is.na(calledupshare.y), calledupshare.y, calledupshare.x),
+    totalequity = ifelse(!is.na(totalequity.y), totalequity.y, totalequity.x),
+    `employee-owned` = ifelse(!is.na(`employee-owned.y`), `employee-owned.y`, `employee-owned.x`),
+    spinout = ifelse(!is.na(spinout.y), spinout.y, spinout.x),
+    dissolved = ifelse(!is.na(dissolved.y), dissolved.y, dissolved.x),
+    reported = ifelse(!is.na(reported.y), reported.y, reported.x)
+  ) |>
+  select(-ends_with(".x"), -ends_with(".y"))  # Drop temporary columns
+```
+
+
+
+
+## 5. save as csv files
+
+```{r}
+write_csv(finance_raw_updated, file = here("cleaned_data", "cls_finance_2025.csv"))
+```
+
+

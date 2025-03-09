@@ -3,8 +3,8 @@ title: "data-analysis"
 author: "Meng Ye"
 date: "2024-08-24"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 ## Introduction 
@@ -89,9 +89,36 @@ cic_cleaned <- cic2019 %>%
          Year = factor(year)) %>% 
   mutate(cls = ifelse(CLS == 1, "CLS", "CLG"),
          totalequity = as.numeric(totalequity),
-         totalequity_std = scale(totalequity, center = TRUE, scale = TRUE))
+         totalequity_std = scale(totalequity, center = TRUE, scale = TRUE)) %>% 
+  
+   mutate(share_size = case_when(
+    totalissueshares <= 20 ~ "small",
+    totalissueshares >= 100000 ~ "large",
+    TRUE ~ NA_character_
+  ))
+```
+Check the distribution of the data for share_size 
+
+```{r}
+cic_cleaned %>% 
+  count(share_size)
 ```
 
+
+
+
+Total counts in full data set
+
+```{r}
+count_full <- cic_cleaned %>% 
+  mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
+  summarize(count_provider = n_distinct(provider_name),
+            count_location = n_distinct(location_name)-1,
+            count_overall_rating = sum(overall),
+            count_rating = n()) 
+
+count_full
+```
 
 ```{r}
 count_by_form <- cic_cleaned %>% 
@@ -111,12 +138,41 @@ count_by_level_form <- cic_cleaned %>%
   group_by(cls, level) %>% 
   summarize(count_provider = n_distinct(provider_name),
             count_location = n_distinct(location_name), 
-            # the count_location for provider should be manually adjusted to 0
+ # the count_location for provider should be manually adjusted to 0
             count_overall_rating = sum(overall),
             count_rating = n()) 
 
 count_by_level_form
 ```
+
+
+```{r}
+count_by_level <- cic_cleaned %>% 
+  mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
+  group_by(level) %>% 
+  summarize(count_provider = n_distinct(provider_name),
+            count_location = n_distinct(location_name), 
+ # the count_location for provider should be manually adjusted to 0
+            count_overall_rating = sum(overall),
+            count_rating = n()) 
+
+count_by_level
+```
+
+```{r}
+count_by_level_type <- cic_cleaned %>% 
+  mutate(overall = ifelse(domain == "Overall", 1, 0)) %>% 
+  group_by(social_care, level) %>% 
+  summarize(count_provider = n_distinct(provider_name),
+            count_location = n_distinct(location_name), 
+ # the count_location for provider should be manually adjusted to 0
+            count_overall_rating = sum(overall),
+            count_rating = n()) 
+
+count_by_level_type
+```
+
+
 
 
 
@@ -232,3 +288,78 @@ eq_models <-
 eq_models
 ```
 
+
+
+## regression analysis comparing CIC with big vs. small shares
+
+Check the distribution of the data for share_size 
+
+```{r}
+cic_cleaned %>% 
+  count(share_size)
+```
+
+Only CLS has large vs. small value as expected
+```{r}
+# Crosstab between `cls` and `share_size`
+datasummary_crosstab(cls ~ share_size, data = cic_cleaned)
+```
+
+Spint out can perfectly predict whether one is small or not, so droping that in the model 
+```{r}
+# Crosstab between `spinout` and `social_care`
+datasummary_crosstab(spinout ~ share_size, data = cic_cleaned)
+```
+
+healthcare perfectly predicts share_size as well 
+```{r}
+# Crosstab between `dissolved` and `share_size`
+datasummary_crosstab(healthcare ~ share_size, data = cic_cleaned)
+
+```
+
+
+To sum, all large share CICs are cls, non-spinout and healthcare category
+
+
+### models without equity variable 
+
+```{r }
+model_order_overall_size <- clm(rating ~  share_size + age,
+                data = filter(cic_cleaned, domain == "Overall"),
+                link = "logit")
+
+model_order_safe_size <- clm(rating ~  share_size + age ,
+                data = filter(cic_cleaned, domain == "Safe"),
+                link = "logit")
+model_order_effective_size <- clm(rating ~  share_size + age ,
+                data = filter(cic_cleaned, domain == "Effective"),
+                link = "logit")
+model_order_caring_size <- clm(rating ~  share_size + age ,
+                data = filter(cic_cleaned, domain == "Caring"),
+                link = "logit")
+model_order_well_led_size <- clm(rating ~  share_size + age ,
+                data = filter(cic_cleaned, domain == "Well-led"),
+                link = "logit")
+model_order_responsive_size <- clm(rating ~  share_size + age ,
+                data = filter(cic_cleaned, domain == "Responsive"),
+                link = "logit")
+```
+
+
+```{r}
+ordinal_models_size <-
+  modelsummary(
+    list(
+      "overall" = model_order_overall_size,
+      "safe" = model_order_safe_size,
+      "effective" = model_order_effective_size,
+      "caring" = model_order_caring_size,
+      "well-led" = model_order_well_led_size,
+      "responsive" = model_order_responsive_size
+    ),
+    coef_omit = "region",
+    exponentiate = F,
+    statistic = "({p.value}) {stars}")
+ordinal_models_size
+```
