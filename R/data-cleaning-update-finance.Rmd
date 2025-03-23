@@ -28,6 +28,10 @@ set.seed(5432)
 ```{r import data 0, message=FALSE, warning=FALSE}
 # import the financial data in Round 1
 finance_raw <- read_excel(here("cleaned_data","cls_finance_to_update.xlsx"))
+```
+
+
+```{r import data 0, message=FALSE, warning=FALSE}
 correct_finance <- read_csv(here("cleaned_data", "corrected_finance.csv"))
 ```
 

@@ -1,0 +1,63 @@
+---
+title: "extracting CLG finance"
+author: "Meng Ye"
+date: "2025-03-13"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+## Introduction 
+
+The current version re-run the codes of the data analysis. 
+```{r contr}
+# environment setup to run ordered logit properly
+options(contrasts = rep("contr.treatment", 2))
+```
+
+### Load packages 
+
+```{r load package, message=FALSE, warning=FALSE}
+library(tidyverse) # package for data cleaning and plotting
+library(readxl)
+library(modelsummary)
+library(ordinal) # package for ordinal logit regression
+library(brant) # brant test for the parallel assumption for ordered logit
+library(MASS) # models that work with the brant test
+library(broom) # extracting model summary as data frame
+library(modelsummary) # deriving model tables
+library(scales) # label percent
+library(lubridate) # working with dates
+library(marginaleffects) #to calculate marginal effects
+library(gt) # to format tables
+library(here) # work with directory
+set.seed(5432)
+```
+
+
+
+## Merging CQC and financial data 
+
+
+```{r import data 0, message=FALSE, warning=FALSE}
+# import the financial data in Round 1
+finance <- read_excel(here("cleaned_data","cls_finance_to_update.xlsx"))
+```
+
+
+
+```{r}
+finance_clg <- finance %>% 
+  filter(CLS!=1) %>% 
+  group_by(std_name) %>% 
+  dplyr::slice(1)
+```
+
+
+```{r}
+# save data 
+write_excel_csv(finance_clg, here("cleaned_data","finance_clg.csv"))
+```
+
+
